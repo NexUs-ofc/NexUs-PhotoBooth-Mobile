@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "NexUs-PhotoBooth-Mobile",
+    "name": "Expotech PhotoBooth 2026",
     "slug": "NexUs-PhotoBooth-Mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,8 @@
     "scheme": "nexusphotoboothmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.nexus.photoboothmobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +27,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o PhotoBooth tire sua foto.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-splash-screen",
         {

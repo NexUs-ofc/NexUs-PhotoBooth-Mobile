@@ -1,6 +1,19 @@
-# NexUs PhotoBooth Mobile
+# Expotech PhotoBooth 2026
 
-Aplicativo mobile multiplataforma feito com React Native e Expo Router.
+Aplicativo de photo booth multiplataforma feito com React Native, Expo Router e TypeScript.
+
+## Fluxo do participante
+
+1. Preenche nome, e-mail e WhatsApp com DDD e autoriza o uso da foto.
+2. Tira a foto e confirma ou refaz.
+3. A foto é composta na moldura oficial da Expotech 2026.
+4. O app envia a imagem composta à API PhotoBooth, que encaminha a foto para o WhatsApp informado com a mensagem `Obrigado por visitar nosso stand [nome]!💜`.
+
+O backend mantém as credenciais GreenAPI fora do app. O envio só é aceito quando a instância WhatsApp estiver autorizada; a confirmação da GreenAPI significa que a mensagem entrou na fila de envio, não que já foi entregue.
+
+## Configuração da API PhotoBooth
+
+Crie um `.env` local com `EXPO_PUBLIC_PHOTOBOOTH_API_URL` apontando para a URL HTTPS pública da API e `EXPO_PUBLIC_PHOTOBOOTH_API_KEY` igual à chave dedicada `PHOTOBOOTH_API_KEY` configurada no backend. Reinicie o Expo após mudar essas variáveis. A chave do app é uma chave de cabine e pode ser extraída do binário; restrinja seu uso, faça rotação após o evento e nunca coloque credenciais GreenAPI no mobile.
 
 ## Requisitos
 
@@ -17,8 +30,6 @@ Aplicativo mobile multiplataforma feito com React Native e Expo Router.
 
 2. Abra a pasta `android` deste repositório no Android Studio e aguarde a sincronização do Gradle.
 3. Selecione um emulador Android ou conecte um aparelho com depuração USB e execute a configuração `app`.
-
-O projeto Gradle está em `android/`. O identificador Android atual é `com.nexus.photoboothmobile`.
 
 ## Rodar pelo terminal
 
@@ -46,4 +57,4 @@ A pasta `android/` é gerada pelo Expo Prebuild e está versionada para poder se
 
 ## iOS
 
-O código React Native também suporta iOS. Para compilar e abrir o projeto nativo iOS é necessário macOS com Xcode; a pasta `ios/` pode ser gerada nesse ambiente com `npx expo prebuild --platform ios`.
+O código React Native suporta iOS. Para compilar e abrir o projeto nativo iOS é necessário macOS com Xcode; gere a pasta com `npx expo prebuild --platform ios` nesse ambiente.
