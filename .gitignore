@@ -40,4 +40,13 @@ example
 
 # generated native folders
 /ios
-/android
+
+# Android Studio local state
+.idea/caches/
+.idea/workspace.xml
+.idea/shelf/
+
+# local env files
+.env
+.env.*
+!.env.example
