@@ -61,7 +61,7 @@ O código React Native suporta iOS. Para compilar e abrir o projeto nativo iOS �
 
 ## Compilar no Windows e instalar sem Expo Go
 
-O projeto seleciona CMake 3.31.6 no Windows, com Ninja compatível com caminhos longos. O Gradle instala esse CMake no Android SDK quando necessário; o SDK precisa ter as licenças aceitas. O Windows também precisa ter `LongPathsEnabled=1`. Essa seleção é exclusiva do Windows.
+O projeto seleciona CMake 3.31.6 no Windows, com Ninja compatível com caminhos longos. Instale CMake 3.31.6 em Android Studio > Settings > Android SDK > SDK Tools > Show Package Details > CMake. O SDK precisa ter as licenças aceitas. O Windows também precisa ter `LongPathsEnabled=1`. Essa seleção é exclusiva do Windows.
 
 Para gerar um APK independente, com o JavaScript incluído e assinatura de teste:
 
