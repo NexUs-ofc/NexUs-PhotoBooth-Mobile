@@ -20,4 +20,4 @@ app/src/main/java/inline/
 *.jsbundle
 
 # Local Gradle build logs
-build-*.log
+*.log

@@ -1,4 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { File } from 'expo-file-system';
+import { fetch as expoFetch } from 'expo/fetch';
 import { StatusBar } from 'expo-status-bar';
 import { captureRef } from 'react-native-view-shot';
 import { useCallback, useRef, useState } from 'react';
@@ -136,6 +138,7 @@ export default function PhotoBoothScreen() {
     const nextErrors: FormErrors = {};
     const name = form.name.trim();
     if (name.length < 2) nextErrors.name = 'Digite seu nome.';
+    if (name.length > 80) nextErrors.name = 'Use até 80 caracteres no nome.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       nextErrors.email = 'Digite um e-mail válido.';
     }
@@ -146,6 +149,12 @@ export default function PhotoBoothScreen() {
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }, [consent, form.email, form.name, form.phone]);
+
+  const openCamera = () => {
+    setCameraReady(false);
+    setShareError('');
+    setPhase('camera');
+  };
 
   const startPhotoFlow = async () => {
     if (!validateForm()) return;
@@ -187,8 +196,7 @@ export default function PhotoBoothScreen() {
 
     const cameraPermission = permission?.granted ? permission : await requestPermission();
     if (cameraPermission.granted) {
-      setCameraReady(false);
-      setPhase('camera');
+      openCamera();
     } else {
       setPhase('permission');
     }
@@ -218,7 +226,7 @@ export default function PhotoBoothScreen() {
   };
 
   const sendToWhatsApp = async () => {
-    if (!compositionRef.current || !capturedPhoto) return;
+    if (sharing || !photoLoaded || !templateLoaded || !compositionRef.current || !capturedPhoto) return;
     const whatsappNumber = normalizeBrazilianPhone(form.phone);
     if (!whatsappNumber) {
       setShareError('Confira o número de celular informado.');
@@ -243,23 +251,35 @@ export default function PhotoBoothScreen() {
       body.append('name', form.name.trim());
       body.append('phone', whatsappNumber);
       body.append('consent', 'true');
-      body.append('photo', {
-        uri: imageUri,
-        name: 'expotech-2026.jpg',
-        type: 'image/jpeg',
-      } as unknown as Blob);
-      const response = await fetch(`${API_URL}/photobooth/send`, {
-        method: 'POST',
-        headers: { 'X-PhotoBooth-Key': API_KEY },
-        body,
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(typeof result.detail === 'string' ? result.detail : 'Não foi possível enviar a foto. Tente novamente.');
+      // Expo SDK 58 uploads actual File/Blob parts, not React Native's legacy { uri } objects.
+      body.append('photo', new File(imageUri));
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120_000);
+      try {
+        const response = await expoFetch(`${API_URL}/photobooth/send`, {
+          method: 'POST',
+          headers: { 'X-PhotoBooth-Key': API_KEY },
+          body,
+          signal: controller.signal,
+        });
+        const result = await response.json().catch((error: unknown) => {
+          if (controller.signal.aborted) throw error;
+          return {};
+        });
+        if (!response.ok) {
+          throw new Error(typeof result.detail === 'string' ? result.detail : 'Não foi possível enviar a foto. Tente novamente.');
+        }
+        if (result.status !== 'queued' || typeof result.idMessage !== 'string' || !result.idMessage) {
+          throw new Error('O servidor não confirmou o envio. Confira seu WhatsApp antes de tentar novamente.');
+        }
+      } finally {
+        clearTimeout(timeout);
       }
       setPhase('finished');
     } catch (error) {
-      setShareError(error instanceof Error ? error.message : 'Não foi possível enviar a foto. Tente novamente.');
+      setShareError(error instanceof Error && error.name === 'AbortError'
+        ? 'O servidor demorou para confirmar o envio. Confira seu WhatsApp antes de tentar novamente, para evitar repetir a foto.'
+        : error instanceof Error ? error.message : 'Não foi possível enviar a foto. Tente novamente.');
     } finally {
       setSharing(false);
     }
@@ -277,7 +297,7 @@ export default function PhotoBoothScreen() {
 
   const goBack = () => {
     if (phase === 'camera') setPhase('form');
-    else if (phase === 'review') setPhase('camera');
+    else if (phase === 'review') openCamera();
     else if (phase === 'compose') setPhase('review');
     else if (phase === 'permission') setPhase('form');
   };
@@ -294,6 +314,11 @@ export default function PhotoBoothScreen() {
             mirror={facing === 'front'}
             animateShutter
             onCameraReady={() => setCameraReady(true)}
+            onMountError={() => {
+              setCameraReady(false);
+              setPhase('form');
+              Alert.alert('Não foi possível abrir a câmera', 'Confira a permissão da câmera e feche outros aplicativos que possam estar usando ela. Seus dados foram mantidos; toque em Tirar foto para tentar novamente.');
+            }}
           />
           <View style={styles.cameraTopBar}>
             <Pressable accessibilityRole="button" accessibilityLabel="Voltar" onPress={goBack} style={styles.cameraBack}>
@@ -356,6 +381,7 @@ export default function PhotoBoothScreen() {
                     onChangeText={(value) => updateField('name', value)}
                     error={errors.name}
                     autoCapitalize="words"
+                    maxLength={80}
                     returnKeyType="next"
                   />
                   <Field
@@ -397,7 +423,7 @@ export default function PhotoBoothScreen() {
                 {errors.consent && <Text style={styles.errorText}>{errors.consent}</Text>}
 
                 <PrimaryButton label="Tirar foto!" onPress={startPhotoFlow} />
-                <Text style={styles.privacyNote}>Sua foto será preparada aqui e você confirma o envio no WhatsApp.</Text>
+                <Text style={styles.privacyNote}>Sua foto será preparada aqui e enviada para o WhatsApp informado após sua confirmação.</Text>
               </ScrollView>
             </KeyboardAvoidingView>
           )}
@@ -433,7 +459,18 @@ export default function PhotoBoothScreen() {
                   <Text style={styles.sectionTitle}>Gostou da foto?</Text>
                 </View>
               </View>
-              <Image source={{ uri: capturedPhoto }} style={styles.reviewPhoto} resizeMode="cover" onLoadEnd={() => setPhotoLoaded(true)} />
+              <Image
+                source={{ uri: capturedPhoto }}
+                style={styles.reviewPhoto}
+                resizeMode="cover"
+                onLoad={() => setPhotoLoaded(true)}
+                onError={() => {
+                  setPhotoLoaded(false);
+                  Alert.alert('Não foi possível carregar a foto', 'Tire outra foto para continuar.', [
+                    { text: 'Tirar outra', onPress: openCamera },
+                  ]);
+                }}
+              />
               <Text style={styles.reviewHint}>Confira sua foto antes de aplicar a moldura.</Text>
               <View style={styles.actionStack}>
                 <PrimaryButton label="Usar esta foto" onPress={openComposition} disabled={!photoLoaded} />
@@ -462,17 +499,25 @@ export default function PhotoBoothScreen() {
                   source={TEMPLATE}
                   style={styles.templateImage}
                   resizeMode="stretch"
-                  onLoadEnd={() => setTemplateLoaded(true)}
+                  onLoad={() => setTemplateLoaded(true)}
+                  onError={() => {
+                    setTemplateLoaded(false);
+                    setShareError('Não foi possível carregar a moldura. Volte e tente novamente.');
+                  }}
                 />
                 <Image
                   source={{ uri: capturedPhoto }}
                   style={styles.templatePhoto}
                   resizeMode="cover"
-                  onLoadEnd={() => setPhotoLoaded(true)}
+                  onLoad={() => setPhotoLoaded(true)}
+                  onError={() => {
+                    setPhotoLoaded(false);
+                    setShareError('Não foi possível carregar a foto. Toque em Refazer foto para continuar.');
+                  }}
                 />
               </View>
               <Text style={styles.messagePreview}>{MESSAGE(form.name.trim())}</Text>
-              <Text style={styles.sendHint}>Vamos abrir o WhatsApp com a foto e a mensagem para você confirmar.</Text>
+              <Text style={styles.sendHint}>Ao enviar, a foto e a mensagem serão encaminhadas automaticamente para o WhatsApp informado.</Text>
               {shareError ? <Text style={styles.errorText}>{shareError}</Text> : null}
               <View style={styles.actionStack}>
                 <PrimaryButton
@@ -481,7 +526,7 @@ export default function PhotoBoothScreen() {
                   loading={sharing}
                   disabled={!photoLoaded || !templateLoaded}
                 />
-                <PrimaryButton label="Refazer foto" onPress={() => setPhase('camera')} secondary />
+                <PrimaryButton label="Refazer foto" onPress={openCamera} secondary />
               </View>
             </View>
           )}
@@ -510,6 +555,7 @@ type FieldProps = {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
   returnKeyType?: 'next' | 'done';
+  maxLength?: number;
 };
 
 function Field({ label, placeholder, value, onChangeText, error, ...inputProps }: FieldProps) {

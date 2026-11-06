@@ -73,3 +73,16 @@ cd android
 O instalador fica em `android/app/build/outputs/apk/preview/app-preview.apk`. O perfil `preview` funciona sem Metro e usa a configuração do `.env` presente durante o build. O perfil `debug` continua disponível para desenvolvimento no Android Studio.
 
 Se estiver atualizando de um build com CMake antigo, feche o build anterior e remova somente `android/app/.cxx` e `android/app/build` antes de sincronizar novamente. O `android/local.properties` guarda o caminho local do SDK e continua fora do Git.
+
+No Windows, os caches CMake ficam em `%USERPROFILE%/.gradle/cxx/`, separados por projeto e módulo para evitar caminhos longos. Para um teste via CLI enquanto o Android Studio está aberto, use `-Pphotobooth.nativeBuildScope=device-test` para isolar a configuração nativa. Execute uma instalação por vez.
+
+Instalação de desenvolvimento no aparelho USB (sem exportar instalador para distribuição):
+
+```powershell
+# Na raiz, deixe o Metro ativo:
+npm start -- --localhost --max-workers 1
+# Em outro terminal:
+cd android
+.\gradlew.bat :app:installDebug '-PreactNativeArchitectures=arm64-v8a' '-Pphotobooth.nativeBuildScope=device-test' --no-parallel --max-workers=2
+adb reverse tcp:8081 tcp:8081
+```
