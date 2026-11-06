@@ -149,8 +149,42 @@ export default function PhotoBoothScreen() {
 
   const startPhotoFlow = async () => {
     if (!validateForm()) return;
+    if (!API_URL || !API_KEY) {
+      Alert.alert('Cabine indisponível', 'A conexão com o servidor ainda não foi configurada. Avise a equipe do estande.');
+      return;
+    }
+
     setPhase('validating');
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90_000);
+      let response: Response;
+      try {
+        response = await fetch(`${API_URL}/photobooth/status`, {
+          headers: { 'X-PhotoBooth-Key': API_KEY },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof result.detail === 'string' ? result.detail : 'Não foi possível conectar à cabine.');
+      }
+      if (result.ready !== true) {
+        throw new Error('O WhatsApp do estande ainda não está conectado. Avise a equipe.');
+      }
+    } catch (error) {
+      setPhase('form');
+      const message = error instanceof Error && error.name === 'AbortError'
+        ? 'O servidor demorou para responder. Aguarde um instante e tente novamente.'
+        : error instanceof Error
+          ? error.message
+          : 'Não foi possível conectar à cabine. Tente novamente.';
+      Alert.alert('Cabine indisponível', message);
+      return;
+    }
+
     const cameraPermission = permission?.granted ? permission : await requestPermission();
     if (cameraPermission.granted) {
       setCameraReady(false);
@@ -370,10 +404,10 @@ export default function PhotoBoothScreen() {
 
           {phase === 'validating' && (
             <View style={styles.centerStage}>
-              <Text style={styles.stageTitle}>Validando informações…</Text>
+              <Text style={styles.stageTitle}>Conectando à cabine…</Text>
               <View style={styles.loaderRing}><ActivityIndicator size="large" color={PURPLE} /></View>
               <Text style={styles.stageStrong}>Aguarde um momento</Text>
-              <Text style={styles.stageCaption}>Estamos preparando a câmera para sua foto.</Text>
+              <Text style={styles.stageCaption}>Verificando o WhatsApp do estande. Se o servidor estava parado, isso pode levar até um minuto.</Text>
             </View>
           )}
 
