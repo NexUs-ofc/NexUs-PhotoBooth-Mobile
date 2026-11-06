@@ -21,5 +21,32 @@ allprojects {
   }
 }
 
+// CMake 3.22.1 bundles Ninja 1.10.2, which cannot build long native paths on Windows.
+// Keep the default toolchain on macOS/Linux and allow -Pandroid.cmakeVersion overrides.
+if (System.getProperty("os.name").startsWith("Windows") && !findProperty("android.cmakeVersion")) {
+  ext.set("android.cmakeVersion", "3.31.6")
+}
+
+// Short, project-specific native caches avoid Windows path limits. A validation
+// build can use a separate scope while Android Studio is open.
+if (System.getProperty("os.name").startsWith("Windows")) {
+  def cacheId = java.security.MessageDigest.getInstance("SHA-256")
+      .digest(rootDir.absolutePath.getBytes("UTF-8")).encodeHex().toString().take(12)
+  def cacheScope = (findProperty("photobooth.nativeBuildScope") ?: "studio").toString()
+  if (!(cacheScope ==~ /[A-Za-z0-9_-]+/)) {
+    throw new GradleException("Invalid photobooth.nativeBuildScope")
+  }
+  subprojects { nativeProject ->
+    def configureNativeCache = {
+      def moduleId = java.security.MessageDigest.getInstance("SHA-256")
+          .digest(nativeProject.path.getBytes("UTF-8")).encodeHex().toString().take(12)
+      nativeProject.extensions.getByName("android").externalNativeBuild.cmake.buildStagingDirectory =
+          new File(gradle.gradleUserHomeDir, "cxx/${cacheId}/${cacheScope}/${moduleId}")
+    }
+    nativeProject.plugins.withId("com.android.application") { configureNativeCache() }
+    nativeProject.plugins.withId("com.android.library") { configureNativeCache() }
+  }
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"

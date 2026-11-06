@@ -1,6 +1,19 @@
-# NexUs PhotoBooth Mobile
+# Expotech PhotoBooth 2026
 
-Aplicativo mobile multiplataforma feito com React Native e Expo Router.
+Aplicativo de photo booth multiplataforma feito com React Native, Expo Router e TypeScript.
+
+## Fluxo do participante
+
+1. Preenche nome, e-mail e WhatsApp com DDD e autoriza o uso da foto.
+2. Tira a foto e confirma ou refaz.
+3. A foto é composta na moldura oficial da Expotech 2026.
+4. O app envia a imagem composta à API PhotoBooth, que encaminha a foto para o WhatsApp informado com a mensagem `Obrigado por visitar nosso stand [nome]!💜`.
+
+O backend mantém as credenciais GreenAPI fora do app. O envio só é aceito quando a instância WhatsApp estiver autorizada; a confirmação da GreenAPI significa que a mensagem entrou na fila de envio, não que já foi entregue.
+
+## Configuração da API PhotoBooth
+
+Crie um `.env` local com `EXPO_PUBLIC_PHOTOBOOTH_API_URL` apontando para a URL HTTPS pública da API e `EXPO_PUBLIC_PHOTOBOOTH_API_KEY` igual à chave dedicada `PHOTOBOOTH_API_KEY` configurada no backend. Reinicie o Expo após mudar essas variáveis. A chave do app é uma chave de cabine e pode ser extraída do binário; restrinja seu uso, faça rotação após o evento e nunca coloque credenciais GreenAPI no mobile.
 
 ## Requisitos
 
@@ -17,8 +30,6 @@ Aplicativo mobile multiplataforma feito com React Native e Expo Router.
 
 2. Abra a pasta `android` deste repositório no Android Studio e aguarde a sincronização do Gradle.
 3. Selecione um emulador Android ou conecte um aparelho com depuração USB e execute a configuração `app`.
-
-O projeto Gradle está em `android/`. O identificador Android atual é `com.nexus.photoboothmobile`.
 
 ## Rodar pelo terminal
 
@@ -46,4 +57,32 @@ A pasta `android/` é gerada pelo Expo Prebuild e está versionada para poder se
 
 ## iOS
 
-O código React Native também suporta iOS. Para compilar e abrir o projeto nativo iOS é necessário macOS com Xcode; a pasta `ios/` pode ser gerada nesse ambiente com `npx expo prebuild --platform ios`.
+O código React Native suporta iOS. Para compilar e abrir o projeto nativo iOS é necessário macOS com Xcode; gere a pasta com `npx expo prebuild --platform ios` nesse ambiente.
+
+## Compilar no Windows e instalar sem Expo Go
+
+O projeto seleciona CMake 3.31.6 no Windows, com Ninja compatível com caminhos longos. Instale CMake 3.31.6 em Android Studio > Settings > Android SDK > SDK Tools > Show Package Details > CMake. O SDK precisa ter as licenças aceitas. O Windows também precisa ter `LongPathsEnabled=1`. Essa seleção é exclusiva do Windows.
+
+Para gerar um APK independente, com o JavaScript incluído e assinatura de teste:
+
+```powershell
+cd android
+.\gradlew.bat :app:assemblePreview -PreactNativeArchitectures=arm64-v8a
+```
+
+O instalador fica em `android/app/build/outputs/apk/preview/app-preview.apk`. O perfil `preview` funciona sem Metro e usa a configuração do `.env` presente durante o build. O perfil `debug` continua disponível para desenvolvimento no Android Studio.
+
+Se estiver atualizando de um build com CMake antigo, feche o build anterior e remova somente `android/app/.cxx` e `android/app/build` antes de sincronizar novamente. O `android/local.properties` guarda o caminho local do SDK e continua fora do Git.
+
+No Windows, os caches CMake ficam em `%USERPROFILE%/.gradle/cxx/`, separados por projeto e módulo para evitar caminhos longos. Para um teste via CLI enquanto o Android Studio está aberto, use `-Pphotobooth.nativeBuildScope=device-test` para isolar a configuração nativa. Execute uma instalação por vez.
+
+Instalação de desenvolvimento no aparelho USB (sem exportar instalador para distribuição):
+
+```powershell
+# Na raiz, deixe o Metro ativo:
+npm start -- --localhost --max-workers 1
+# Em outro terminal:
+cd android
+.\gradlew.bat :app:installDebug '-PreactNativeArchitectures=arm64-v8a' '-Pphotobooth.nativeBuildScope=device-test' --no-parallel --max-workers=2
+adb reverse tcp:8081 tcp:8081
+```

@@ -109,6 +109,13 @@ android {
         debug {
             signingConfig signingConfigs.debug
         }
+        // Installable test build with bundled JavaScript; no Metro or Expo Go required.
+        preview {
+            initWith debug
+            debuggable false
+            matchingFallbacks = ['debug']
+            signingConfig signingConfigs.debug
+        }
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
