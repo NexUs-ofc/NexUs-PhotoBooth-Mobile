@@ -58,3 +58,18 @@ A pasta `android/` é gerada pelo Expo Prebuild e está versionada para poder se
 ## iOS
 
 O código React Native suporta iOS. Para compilar e abrir o projeto nativo iOS é necessário macOS com Xcode; gere a pasta com `npx expo prebuild --platform ios` nesse ambiente.
+
+## Compilar no Windows e instalar sem Expo Go
+
+O projeto seleciona CMake 3.31.6 no Windows, com Ninja compatível com caminhos longos. O Gradle instala esse CMake no Android SDK quando necessário; o SDK precisa ter as licenças aceitas. O Windows também precisa ter `LongPathsEnabled=1`. Essa seleção é exclusiva do Windows.
+
+Para gerar um APK independente, com o JavaScript incluído e assinatura de teste:
+
+```powershell
+cd android
+.\gradlew.bat :app:assemblePreview -PreactNativeArchitectures=arm64-v8a
+```
+
+O instalador fica em `android/app/build/outputs/apk/preview/app-preview.apk`. O perfil `preview` funciona sem Metro e usa a configuração do `.env` presente durante o build. O perfil `debug` continua disponível para desenvolvimento no Android Studio.
+
+Se estiver atualizando de um build com CMake antigo, feche o build anterior e remova somente `android/app/.cxx` e `android/app/build` antes de sincronizar novamente. O `android/local.properties` guarda o caminho local do SDK e continua fora do Git.

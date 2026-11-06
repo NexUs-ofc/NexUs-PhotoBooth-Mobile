@@ -21,5 +21,11 @@ allprojects {
   }
 }
 
+// CMake 3.22.1 bundles Ninja 1.10.2, which cannot build long native paths on Windows.
+// Keep the default toolchain on macOS/Linux and allow -Pandroid.cmakeVersion overrides.
+if (System.getProperty("os.name").startsWith("Windows") && !findProperty("android.cmakeVersion")) {
+  ext.set("android.cmakeVersion", "3.31.6")
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
